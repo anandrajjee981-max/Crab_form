@@ -1,0 +1,17 @@
+// Why does this file exist? DAO exposes response data operations.
+import ResponseAccessor from "../accessor/ResponseAccessor.js";
+
+export default class ResponseDAO {
+  static async createResponse(responseComponent) {
+    return ResponseAccessor.create(responseComponent.toPersistence());
+  }
+  static async findByForm(form_id) {
+    return ResponseAccessor.findByForm(form_id);
+  }
+  static async findById(id) {
+    return ResponseAccessor.findById(id);
+  }
+  static async countByForm(form_id) {
+    return ResponseAccessor.countByForm(form_id);
+  }
+}

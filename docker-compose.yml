@@ -1,0 +1,43 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: crabform-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./server
+    container_name: crabform-server
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./server/.env
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/crabform
+      PORT: 3000
+      NODE_ENV: development
+      CLIENT_URL: http://localhost:5173
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  client:
+    build: ./client
+    container_name: crabform-client
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PROXY_TARGET: http://server:3000
+      VITE_API_URL: ""
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:
