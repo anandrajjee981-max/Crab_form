@@ -1,5 +1,7 @@
 // Why does this file exist? Activity orchestrates response submission with full validation: form exists, published, fields valid.
+// Also fills ResponseModel with user data when user is authenticated.
 import FormDAO from "../../form/dao/FormDAO.js";
+import UserDAO from "../../auth/dao/UserDAO.js";
 import ResponseBuilder from "../builder/ResponseBuilder.js";
 import ResponseDAO from "../dao/ResponseDAO.js";
 
@@ -55,6 +57,17 @@ export default class SubmitResponseActivity {
     if (!form) { const e = new Error("Form not found"); e.statusCode = 404; throw e; }
     if (form.status !== "published") { const e = new Error("Form is not published"); e.statusCode = 400; throw e; }
 
+    // --- get user data if authenticated: fill ResponseModel ---
+    let userData = null;
+    if (userId) {
+      try {
+        userData = await UserDAO.findUserById(userId);
+      } catch {}
+    }
+    const respondentEmail = body.respondentEmail || userData?.email || null;
+    const respondentName = body.respondentName || userData?.name || null;
+    const respondentId = userId || null;
+
     // allowMultipleResponses check could be added with respondent tracking
     const fieldMap = new Map(form.formfield.map((f) => [f._id.toString(), f]));
 
@@ -83,11 +96,18 @@ export default class SubmitResponseActivity {
     const response = ResponseBuilder.build({
       form_id: formId,
       answers,
-      respondentEmail: body.respondentEmail || null,
-      respondentId: userId || null,
+      respondentEmail,
+      respondentName,
+      respondentId,
     });
 
     const saved = await ResponseDAO.createResponse(response);
     return saved;
+  }
+
+  // alias for clarity: getUserData helper
+  static async getUserData(userId) {
+    if (!userId) return null;
+    return UserDAO.findUserById(userId);
   }
 }

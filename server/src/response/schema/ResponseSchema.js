@@ -13,7 +13,8 @@ const responseSchema = new mongoose.Schema(
   {
     form_id: { type: mongoose.Schema.Types.ObjectId, ref: "Form", required: true, index: true },
     respondentEmail: { type: String, default: null },
-    respondentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    respondentName: { type: String, default: null },
+    respondentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     answers: { type: [answerSchema], required: true },
     submittedAt: { type: Date, default: Date.now },
   },

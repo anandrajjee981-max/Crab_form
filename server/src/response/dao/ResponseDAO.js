@@ -14,4 +14,22 @@ export default class ResponseDAO {
   static async countByForm(form_id) {
     return ResponseAccessor.countByForm(form_id);
   }
+
+  // --- get user data / getMyFormData ---
+  static async findByRespondent(respondentId) {
+    return ResponseAccessor.findByRespondent(respondentId);
+  }
+  static async findByRespondentEmail(email) {
+    return ResponseAccessor.findByRespondentEmail(email);
+  }
+  static async findByFormAndRespondent(form_id, respondentId) {
+    return ResponseAccessor.findByFormAndRespondent(form_id, respondentId);
+  }
+  // aliases for requested naming
+  static async getMyFormData(respondentId) {
+    return ResponseAccessor.findByRespondent(respondentId);
+  }
+  static async getMyResponses(respondentId) {
+    return ResponseAccessor.findByRespondent(respondentId);
+  }
 }

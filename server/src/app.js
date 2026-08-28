@@ -7,7 +7,7 @@ import { env } from "./config/env.js";
 import authRoutes from "./auth/routes.js";
 import formRoutes from "./form/routes.js";
 import aiRoutes from "./ai/routes.js";
-import responseRoutes from "./response/routes.js";
+import responseRoutes, { myResponsesRouter } from "./response/routes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 
 const app = express();
@@ -36,6 +36,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/forms", formRoutes);
 // Also mount response routes via forms prefix (response routes handles /:id/responses)
 app.use("/api/forms", responseRoutes);
+// My submissions / getMyFormData - separate endpoint for respondent's own data
+app.use("/api/responses", myResponsesRouter());
 app.use("/api/ai", aiLimiter, aiRoutes);
 
 // 404

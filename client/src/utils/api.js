@@ -56,7 +56,26 @@ export const api = {
   publishForm: (id) => request(`/api/forms/${id}/publish`, { method: 'POST', auth: true }),
   deleteForm: (id) => request(`/api/forms/${id}`, { method: 'DELETE', auth: true }),
   getPublicForm: (slug) => request(`/api/forms/public/${slug}`),
-  submitResponse: (formId, payload) => request(`/api/forms/${formId}/responses`, { method: 'POST', body: payload }),
+  // submitResponse – auto-sends token if logged in so backend can fill ResponseModel with user data
+  submitResponse: (formId, payload) => {
+    const headers = {}
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    return request(`/api/forms/${formId}/responses`, { method: 'POST', body: payload, headers })
+  },
+
+  // --- getMyFormData / get user data : separate endpoint for respondent's own submissions ---
+  // Primary: getMyFormData (as requested) – returns responses submitted BY me with form enrichment
+  getMyFormData: () => request('/api/responses/my', { auth: true }),
+  getMyResponses: () => request('/api/responses/my', { auth: true }),
+  getMyAllFormData: () => request('/api/responses/my', { auth: true }),
+  getMyFormResponses: (formId) => request(`/api/responses/my/${formId}`, { auth: true }),
+  // alias variations for compatibility
+  getmyformdata: () => request('/api/responses/my', { auth: true }),
+  getMyData: () => request('/api/responses/my', { auth: true }),
+  getUserData: () => request('/api/responses/user-data', { auth: true }),
+  // owner view: get responses for a form (form owner)
+  getResponses: (formId) => request(`/api/forms/${formId}/responses`, { auth: true }),
 
   health: () => request('/api/health'),
 }

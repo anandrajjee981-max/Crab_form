@@ -1,8 +1,11 @@
 // Why does this file exist? Routes for response submission + retrieval; submission can be public, retrieval is owner-only.
+// Also handles get user data + getMyFormData (my submissions) for respondent side.
 import express from "express";
 import authMiddleware from "../middleware/authMiddleware.js";
 import SubmitResponseActivity from "./activity/SubmitResponseActivity.js";
 import GetResponsesActivity from "./activity/GetResponsesActivity.js";
+import GetMyResponsesActivity from "./activity/GetMyResponsesActivity.js";
+import GetUserDataActivity from "./activity/GetUserDataActivity.js";
 
 const router = express.Router({ mergeParams: true });
 
@@ -66,3 +69,51 @@ combined.get("/:id/responses", authMiddleware, async (req, res, next) => {
 });
 
 export default combined;
+
+// --- My Responses / getMyFormData router (mount at /api/responses) ---
+export function myResponsesRouter() {
+  const r = express.Router();
+
+  // GET /api/responses/my  -> all submissions by logged-in user (getMyFormData)
+  // aliases: /my-form-data, /my-responses
+  const handleMy = async (req, res, next) => {
+    try {
+      const data = await GetMyResponsesActivity.execute({ userId: req.userId });
+      res.json({ success: true, data });
+    } catch (e) { next(e); }
+  };
+  r.get("/my", authMiddleware, handleMy);
+  r.get("/my-form-data", authMiddleware, handleMy);
+  r.get("/my-responses", authMiddleware, handleMy);
+  r.get("/my-data", authMiddleware, handleMy);
+
+  // GET /api/responses/my/:formId -> my submissions for a specific form
+  r.get("/my/:formId", authMiddleware, async (req, res, next) => {
+    try {
+      const data = await GetMyResponsesActivity.getByForm({ userId: req.userId, formId: req.params.formId });
+      res.json({ success: true, data });
+    } catch (e) { next(e); }
+  });
+
+  // GET /api/responses/user-data -> get user data (filled in ResponseModel)
+  r.get("/user-data", authMiddleware, async (req, res, next) => {
+    try {
+      const user = await GetUserDataActivity.execute(req.userId);
+      res.json({ success: true, data: { user } });
+    } catch (e) { next(e); }
+  });
+
+  return r;
+}
+
+// For mounting under /api/forms as well: GET /api/forms/my/responses etc.
+export function myFormDataRouter() {
+  const r = express.Router();
+  r.get("/my/responses", authMiddleware, async (req, res, next) => {
+    try {
+      const data = await GetMyResponsesActivity.execute({ userId: req.userId });
+      res.json({ success: true, data });
+    } catch (e) { next(e); }
+  });
+  return r;
+}

@@ -111,6 +111,9 @@ export default function Dashboard() {
               <span className="dashboard__logo-text">Crab Form</span>
             </Link>
             <div className="dashboard__nav-actions">
+              <Link to="/my-form-data" style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, fontSize: '0.85rem' }}>
+                My Data
+              </Link>
               <motion.button
                 className="btn-create"
                 onClick={() => navigate('/create')}

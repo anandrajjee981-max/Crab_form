@@ -2,7 +2,7 @@
 import Response from "../components/Response.js";
 
 export default class ResponseBuilder {
-  static build({ form_id, answers, respondentEmail, respondentId }) {
+  static build({ form_id, answers, respondentEmail, respondentName, respondentId }) {
     if (!form_id) {
       const e = new Error("form_id is required");
       e.statusCode = 400;
@@ -28,6 +28,7 @@ export default class ResponseBuilder {
     return new Response({
       form_id,
       respondentEmail: respondentEmail || null,
+      respondentName: respondentName || null,
       respondentId: respondentId || null,
       answers: normalized,
     });
