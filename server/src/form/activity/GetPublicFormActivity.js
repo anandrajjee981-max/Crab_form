@@ -14,8 +14,10 @@ export default class GetPublicFormActivity {
       e.statusCode = 404;
       throw e;
     }
-    // Strip private ownership metadata
-    const { owner_id, ...publicForm } = form;
-    return publicForm;
+    // Keep ownerId for shipped link ?owner= ref, strip private metadata otherwise
+    const ownerId = form.owner_id;
+    const { owner_id, ...rest } = form;
+    // Expose ownerId needed for response owner linking via shipped link
+    return { ...rest, ownerId, owner_id: ownerId };
   }
 }

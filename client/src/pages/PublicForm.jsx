@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useLocation, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../utils/api.js'
 import '../styles/builder.css'
@@ -69,6 +69,7 @@ function FieldInput({ field, value, onChange }) {
 
 export default function PublicForm() {
   const { slug } = useParams()
+  const location = useLocation()
   const [form, setForm] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -108,8 +109,13 @@ export default function PublicForm() {
         fieldId: f._id,
         value: values[f._id] ?? (f.datatype === 'checkbox' ? [] : ''),
       }))
-      // Filter out empty non-required? But validation backend checks required, so send all
-      await api.submitResponse(form._id, { answers })
+      // OwnerId passed via shipped link ?owner= — also fallback to form owner; NO AUTH REQUIRED
+      const params = new URLSearchParams(location.search)
+      const ownerId = params.get('owner') || params.get('ownerId') || form.owner_id || form.ownerId || null
+      const payload = { answers }
+      if (ownerId) payload.ownerId = ownerId
+      // NO AUTH REQUIRED: shipped link fillers are anonymous; token is optional and sent automatically if logged in
+      await api.submitResponse(form._id, payload)
       setSubmitted(true)
     } catch (err) {
       setSubmitError(err.message || 'Failed to submit')

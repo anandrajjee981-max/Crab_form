@@ -28,4 +28,10 @@ export default class ResponseAccessor {
   static async findByRespondentWithLimit(respondentId, limit = 50) {
     return ResponseSchema.find({ respondentId }).sort({ createdAt: -1 }).limit(limit).lean();
   }
+  static async findByOwner(ownerId) {
+    return ResponseSchema.find({ ownerId }).sort({ createdAt: -1 }).lean();
+  }
+  static async findByOwnerOrFormIds(ownerId, formIds) {
+    return ResponseSchema.find({ $or: [{ ownerId }, { form_id: { $in: formIds } }] }).sort({ createdAt: -1 }).lean();
+  }
 }

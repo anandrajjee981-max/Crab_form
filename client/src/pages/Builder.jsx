@@ -445,6 +445,9 @@ export default function Builder() {
   const [existingForm, setExistingForm] = useState(null)
   const [leftOpen, setLeftOpen] = useState(false)
   const [rightOpen, setRightOpen] = useState(false)
+  const [responses, setResponses] = useState([])
+  const [responsesLoading, setResponsesLoading] = useState(false)
+  const [responsesError, setResponsesError] = useState('')
 
   // Load existing form when editing (id !== "new") and no generatedForm provided
   useEffect(() => {
@@ -612,7 +615,10 @@ export default function Builder() {
         }
       }
       const slug = saved?.slug || existingForm?.slug
-      setPublishLink(slug ? `${window.location.origin}/f/${slug}` : saved?.shareUrl || 'https://crabform.io/f/published')
+      const ownerId = saved?.owner_id || saved?.ownerId || existingForm?.owner_id || existingForm?.ownerId || null
+      // Shipped link now includes ownerId via query ?owner= — so anonymous fills still link to owner
+      const base = slug ? `${window.location.origin}/f/${slug}` : saved?.shareUrl || 'https://crabform.io/f/published'
+      setPublishLink(ownerId ? `${base}?owner=${ownerId}` : base)
       setPublished(true)
       setShowPublishModal(true)
     } catch (err) {
@@ -670,6 +676,25 @@ export default function Builder() {
 
   const currentTheme = THEMES[theme]
 
+  const loadResponses = async () => {
+    if (!id || id === 'new') return
+    setResponsesLoading(true)
+    setResponsesError('')
+    try {
+      const res = await api.getResponses(id)
+      const list = Array.isArray(res.data) ? res.data : []
+      setResponses(list)
+    } catch (e) {
+      setResponsesError(e.message || 'Failed to load responses')
+    } finally {
+      setResponsesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'Responses') loadResponses()
+  }, [activeTab, id])
+
   return (
     <div className="builder" style={{ '--theme-accent': currentTheme.accent }}>
       {/* Nav */}
@@ -712,7 +737,7 @@ export default function Builder() {
           </div>
 
           <div className="builder__nav-center" role="tablist" aria-label="Builder tabs">
-            {['Build', 'Preview', 'Settings'].map(tab => (
+            {['Build', 'Preview', 'Settings', 'Responses'].map(tab => (
               <button
                 key={tab}
                 className={`builder__tab ${activeTab === tab ? 'active' : ''}`}
@@ -883,6 +908,53 @@ export default function Builder() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'Responses' && (
+              <div style={{ padding: '28px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 800, color: 'var(--warm-white)' }}>
+                    Responses ({responses.length})
+                  </h2>
+                  <button onClick={loadResponses} disabled={responsesLoading} style={{ padding: '8px 14px', background: 'var(--orange)', color: 'var(--black)', borderRadius: 8, fontWeight: 700, fontSize: '0.85rem' }}>
+                    {responsesLoading ? 'Loading...' : '↻ Refresh'}
+                  </button>
+                </div>
+                {responsesError && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', padding: '10px 12px', borderRadius: 8, marginBottom: 16 }}>{responsesError}</div>}
+                {responsesLoading ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>🦀 Loading responses...</div>
+                ) : responses.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 40, background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: 12 }}>
+                    <div style={{ fontSize: '2rem', marginBottom: 8 }}>📭</div>
+                    <p style={{ color: 'var(--muted)' }}>No responses yet. Share your form link to collect data.</p>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: 8 }}>All submissions (anonymous + logged-in) appear here with actual question text.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {responses.map((r) => (
+                      <div key={r._id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>{r.respondentName || 'Anonymous'} <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: '0.85rem' }}>{r.respondentEmail || ''}</span></div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{new Date(r.submittedAt || r.createdAt).toLocaleString()}</div>
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>ID: {String(r._id).slice(-8)} · respondentId: {r.respondentId ? String(r.respondentId).slice(-6) : 'anon'}</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {(r.answersEnriched || r.answersWithQuestion || r.answers).map((a, i) => (
+                            <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: 2 }}>{a.question || a.fieldId}</div>
+                              {a.description && <div style={{ fontSize: '0.75rem', color: 'var(--muted-2)', marginBottom: 4 }}>{a.description}</div>}
+                              <div style={{ fontWeight: 600 }}>{Array.isArray(a.value) ? a.value.join(', ') : String(a.value ?? '—')}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: 4 }}>{a.datatype || ''}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

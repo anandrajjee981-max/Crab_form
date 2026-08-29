@@ -52,18 +52,21 @@ function validateValue(datatype, value, field) {
 }
 
 export default class SubmitResponseActivity {
+  // Note: NO authentication required for shipped link fillers. userId is optional (null = anonymous).
+  // Now also stores ownerId via ref from Form / shipped link (?owner=) so owner view shows all data (2 docs) not just respondent's 1.
   static async execute({ formId, body, userId }) {
     const form = await FormDAO.findById(formId);
     if (!form) { const e = new Error("Form not found"); e.statusCode = 404; throw e; }
     if (form.status !== "published") { const e = new Error("Form is not published"); e.statusCode = 400; throw e; }
 
-    // --- get user data if authenticated: fill ResponseModel ---
+    // --- optional enrichment: if Authorization header present, fill ResponseModel with user data; otherwise anonymous ---
     let userData = null;
     if (userId) {
       try {
         userData = await UserDAO.findUserById(userId);
       } catch {}
     }
+    // For anonymous shipped-link fillers, respondent fields may be null or supplied via body (e.g. email field answer)
     const respondentEmail = body.respondentEmail || userData?.email || null;
     const respondentName = body.respondentName || userData?.name || null;
     const respondentId = userId || null;
@@ -93,12 +96,32 @@ export default class SubmitResponseActivity {
       }
     }
 
+    // Build enriched answers with snapshot of actual que via ref from Form
+    const enrichedAnswers = answers.map((a) => {
+      const field = fieldMap.get(a.fieldId?.toString());
+      return {
+        fieldId: a.fieldId,
+        value: a.value,
+        question: field?.title || null,
+        title: field?.title || null,
+        datatype: field?.datatype || null,
+        description: field?.description || null,
+        required: field?.required ?? null,
+        options: field?.options || null,
+      };
+    });
+
+    // OwnerId: take from shipped link (body.ownerId / query) or fallback to Form.owner_id — ensures anonymous fills still link to owner
+    const ownerId = body.ownerId || body.owner_id || form.owner_id || null;
+
     const response = ResponseBuilder.build({
       form_id: formId,
-      answers,
+      ownerId,
+      answers: enrichedAnswers,
       respondentEmail,
       respondentName,
       respondentId,
+      formSnapshot: { title: form.title, slug: form.slug, description: form.description },
     });
 
     const saved = await ResponseDAO.createResponse(response);

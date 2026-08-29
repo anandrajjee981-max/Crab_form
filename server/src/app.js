@@ -33,9 +33,10 @@ app.get("/health", (req, res) => res.json({ success: true, message: "🦀 Crab F
 app.get("/api/health", (req, res) => res.json({ success: true, message: "🦀 Crab Form API is running" }));
 
 app.use("/api/auth", authRoutes);
-app.use("/api/forms", formRoutes);
-// Also mount response routes via forms prefix (response routes handles /:id/responses)
+// Mount response public routes BEFORE formRoutes so POST /:id/responses and POST /public/:slug/responses are NOT blocked by form auth
+// Shipped link fillers: NO AUTH REQUIRED
 app.use("/api/forms", responseRoutes);
+app.use("/api/forms", formRoutes);
 // My submissions / getMyFormData - separate endpoint for respondent's own data
 app.use("/api/responses", myResponsesRouter());
 app.use("/api/ai", aiLimiter, aiRoutes);

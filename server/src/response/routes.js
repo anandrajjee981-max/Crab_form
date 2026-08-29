@@ -6,6 +6,7 @@ import SubmitResponseActivity from "./activity/SubmitResponseActivity.js";
 import GetResponsesActivity from "./activity/GetResponsesActivity.js";
 import GetMyResponsesActivity from "./activity/GetMyResponsesActivity.js";
 import GetUserDataActivity from "./activity/GetUserDataActivity.js";
+import GetOwnerResponsesActivity from "./activity/GetOwnerResponsesActivity.js";
 
 const router = express.Router({ mergeParams: true });
 
@@ -14,9 +15,10 @@ const router = express.Router({ mergeParams: true });
 
 export function responsePublicRouter() {
   const r = express.Router();
+  // NO AUTH REQUIRED: anyone with shipped/shared link can submit as anonymous (or logged-in if token present)
+  // Shipped link now contains ?owner=ownerId so anonymous fills still link to owner
   r.post("/:id/responses", async (req, res, next) => {
     try {
-      // optional auth: check header but don't require
       let userId = null;
       const auth = req.headers.authorization;
       if (auth?.startsWith("Bearer ")) {
@@ -26,7 +28,28 @@ export function responsePublicRouter() {
           userId = payload.userId;
         } catch {}
       }
-      const result = await SubmitResponseActivity.execute({ formId: req.params.id, body: req.body, userId });
+      const body = { ...req.body, ownerId: req.body.ownerId || req.query.owner || req.query.ownerId || null };
+      const result = await SubmitResponseActivity.execute({ formId: req.params.id, body, userId });
+      res.status(201).json({ success: true, message: "Response submitted successfully", data: result });
+    } catch (e) { next(e); }
+  });
+  // Alias: submit via slug directly (shared link) - also NO AUTH REQUIRED
+  r.post("/public/:slug/responses", async (req, res, next) => {
+    try {
+      let userId = null;
+      const auth = req.headers.authorization;
+      if (auth?.startsWith("Bearer ")) {
+        try {
+          const { verifyToken } = await import("../utils/jwt.js");
+          const payload = verifyToken(auth.slice(7));
+          userId = payload.userId;
+        } catch {}
+      }
+      const { default: FormDAO } = await import("../form/dao/FormDAO.js");
+      const form = await FormDAO.findBySlug(req.params.slug);
+      if (!form) { const e = new Error("Form not found"); e.statusCode = 404; throw e; }
+      const body = { ...req.body, ownerId: req.body.ownerId || req.query.owner || req.query.ownerId || null };
+      const result = await SubmitResponseActivity.execute({ formId: form._id.toString(), body, userId });
       res.status(201).json({ success: true, message: "Response submitted successfully", data: result });
     } catch (e) { next(e); }
   });
@@ -46,6 +69,7 @@ export function responseOwnerRouter() {
 
 // For mounting under /api/forms - create combined router
 const combined = express.Router();
+// PUBLIC - NO AUTH REQUIRED for submission via shipped link (anonymous allowed) — ownerId via ?owner=
 combined.post("/:id/responses", async (req, res, next) => {
   try {
     let userId = null;
@@ -57,7 +81,28 @@ combined.post("/:id/responses", async (req, res, next) => {
         userId = payload.userId;
       } catch {}
     }
-    const result = await SubmitResponseActivity.execute({ formId: req.params.id, body: req.body, userId });
+    const body = { ...req.body, ownerId: req.body.ownerId || req.query.owner || req.query.ownerId || null };
+    const result = await SubmitResponseActivity.execute({ formId: req.params.id, body, userId });
+    res.status(201).json({ success: true, message: "Response submitted successfully", data: result });
+  } catch (e) { next(e); }
+});
+// Also support slug-based public submit under /api/forms - NO AUTH
+combined.post("/public/:slug/responses", async (req, res, next) => {
+  try {
+    let userId = null;
+    const auth = req.headers.authorization;
+    if (auth?.startsWith("Bearer ")) {
+      try {
+        const { verifyToken } = await import("../utils/jwt.js");
+        const payload = verifyToken(auth.slice(7));
+        userId = payload.userId;
+      } catch {}
+    }
+    const { default: FormDAO } = await import("../form/dao/FormDAO.js");
+    const form = await FormDAO.findBySlug(req.params.slug);
+    if (!form) { const e = new Error("Form not found"); e.statusCode = 404; throw e; }
+    const body = { ...req.body, ownerId: req.body.ownerId || req.query.owner || req.query.ownerId || null };
+    const result = await SubmitResponseActivity.execute({ formId: form._id.toString(), body, userId });
     res.status(201).json({ success: true, message: "Response submitted successfully", data: result });
   } catch (e) { next(e); }
 });
@@ -74,7 +119,21 @@ export default combined;
 export function myResponsesRouter() {
   const r = express.Router();
 
-  // GET /api/responses/my  -> all submissions by logged-in user (getMyFormData)
+  // GET /api/responses/owner  -> ALL responses for forms OWNED by logged-in user (shows 2 docs: anon + auth)
+  // Distinct from /my which is respondent view (only 1 doc where respondentId==userId)
+  const handleOwner = async (req, res, next) => {
+    try {
+      const data = await GetOwnerResponsesActivity.execute({ userId: req.userId });
+      res.json({ success: true, data });
+    } catch (e) { next(e); }
+  };
+  r.get("/owner", authMiddleware, handleOwner);
+  r.get("/owner-data", authMiddleware, handleOwner);
+  r.get("/owner/all", authMiddleware, handleOwner);
+  r.get("/by-owner", authMiddleware, handleOwner);
+  r.get("/my-owner-data", authMiddleware, handleOwner);
+
+  // GET /api/responses/my  -> all submissions by logged-in user as RESPONDENT (getMyFormData)
   // aliases: /my-form-data, /my-responses
   const handleMy = async (req, res, next) => {
     try {

@@ -2,7 +2,7 @@
 import Response from "../components/Response.js";
 
 export default class ResponseBuilder {
-  static build({ form_id, answers, respondentEmail, respondentName, respondentId }) {
+  static build({ form_id, ownerId = null, answers, respondentEmail, respondentName, respondentId, formSnapshot = null }) {
     if (!form_id) {
       const e = new Error("form_id is required");
       e.statusCode = 400;
@@ -22,15 +22,27 @@ export default class ResponseBuilder {
       if (a.value === undefined || a.value === null || a.value === "") {
         // allow empty but will be validated in Activity for required fields
       }
-      return { fieldId: a.fieldId, value: a.value };
+      // Snapshot fields are optional but if provided from Form ref they persist actual que
+      return {
+        fieldId: a.fieldId,
+        value: a.value,
+        question: a.question || a.title || null,
+        title: a.title || a.question || null,
+        datatype: a.datatype || null,
+        description: a.description || null,
+        required: a.required ?? null,
+        options: a.options || null,
+      };
     });
 
     return new Response({
       form_id,
+      ownerId: ownerId || null,
       respondentEmail: respondentEmail || null,
       respondentName: respondentName || null,
       respondentId: respondentId || null,
       answers: normalized,
+      formSnapshot,
     });
   }
 }

@@ -25,6 +25,12 @@ export default class ResponseDAO {
   static async findByFormAndRespondent(form_id, respondentId) {
     return ResponseAccessor.findByFormAndRespondent(form_id, respondentId);
   }
+  static async findByOwner(ownerId) {
+    return ResponseAccessor.findByOwner(ownerId);
+  }
+  static async findByOwnerOrFormIds(ownerId, formIds) {
+    return ResponseAccessor.findByOwnerOrFormIds(ownerId, formIds);
+  }
   // aliases for requested naming
   static async getMyFormData(respondentId) {
     return ResponseAccessor.findByRespondent(respondentId);
